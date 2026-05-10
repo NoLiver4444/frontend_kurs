@@ -1,3 +1,4 @@
+// src/blocks/bracket/bracket.js
 import { BaseComponent } from '../../base-component.js';
 import { fetchTournaments, fetchTournamentMatches } from '../../api/api.js';
 
@@ -9,7 +10,7 @@ export class Bracket extends BaseComponent {
     this.matches = [];
     this.isLoading = false;
     this.error = null;
-    this.viewMode = 'list'; // 'list' или 'bracket'
+    this.viewMode = 'list';
   }
 
   async init() {
@@ -52,7 +53,7 @@ export class Bracket extends BaseComponent {
       this.element.className = 'bracket';
     }
 
-    if (this.isLoading && (this.viewMode === 'list' ? this.tournaments.length === 0 : this.matches.length === 0)) {
+    if (this.isLoading) {
       this.element.innerHTML = '<div class="loader">Загрузка...</div>';
       return this.element;
     }
@@ -73,8 +74,9 @@ export class Bracket extends BaseComponent {
     }
   }
 
+  // ... (renderTournamentsList остается без изменений, см. предыдущий ответ) ...
   renderTournamentsList() {
-    const filtersHtml = `
+      const filtersHtml = `
       <div class="bracket__filters">
         <button class="filter-btn ${this.props.filter === 'cs-2' ? 'active' : ''}" data-game="cs-2">CS2</button>
         <button class="filter-btn ${this.props.filter === 'dota-2' ? 'active' : ''}" data-game="dota-2">Dota 2</button>
@@ -128,7 +130,6 @@ export class Bracket extends BaseComponent {
 
     this.element.innerHTML = html;
 
-    // Фильтры
     this.element.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const game = e.target.dataset.game;
@@ -139,7 +140,6 @@ export class Bracket extends BaseComponent {
       });
     });
 
-    // Кнопки просмотра сетки
     this.element.querySelectorAll('[data-action="view-bracket"]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
@@ -153,52 +153,58 @@ export class Bracket extends BaseComponent {
     return this.element;
   }
 
+  // === НОВАЯ ЛОГИКА ДЛЯ ПОЛНОЙ СЕТКИ ===
   renderBracketView() {
-    // Группируем матчи по раундам
-    const rounds = this.groupMatchesByRound(this.matches);
+    // Сортируем матчи по дате
+    const sortedMatches = [...this.matches].sort((a, b) => 
+      new Date(a.begin_at || 0) - new Date(b.begin_at || 0)
+    );
     
-    // Определяем названия раундов
-    const roundNames = {
-      'quarterfinals': 'Четвертьфинал',
-      'semifinals': 'Полуфинал',
-      'finals': 'Финал',
-      'grand_final': 'Гранд-финал',
-      'round_1': 'Раунд 1',
-      'round_2': 'Раунд 2'
-    };
+    // Группируем по стадиям (сериям)
+    const rounds = this.groupMatchesByRound(sortedMatches);
 
     let html = `
       <div class="bracket-header">
+        <button class="back-btn" data-action="back">← Назад к турнирам</button>
         <h1 class="bracket-title">${this.currentTournament.name}</h1>
+        
         <div class="bracket-info">
           <span>🎮 ${this.currentTournament.game}</span>
           ${this.currentTournament.prizepool ? `<span>🏆 ${this.currentTournament.prizepool}</span>` : ''}
           ${this.currentTournament.league ? `<span>🏅 ${this.currentTournament.league}</span>` : ''}
         </div>
       </div>
-      
-      <button class="back-btn" data-action="back">← Назад к турнирам</button>
-      
-      <div class="bracket-tree">
     `;
 
-    if (rounds.length === 0) {
+    if (!rounds || rounds.length === 0) {
       html += `<div class="empty-state">Сетка матчей ещё не сформирована</div>`;
     } else {
-      rounds.forEach((roundMatches, roundIndex) => {
-        const roundKey = Object.keys(this.groupMatchesByRound(this.matches))[roundIndex];
-        const roundName = roundNames[roundKey] || `Раунд ${roundIndex + 1}`;
+      html += `<div class="bracket-tree">`;
+      
+      rounds.forEach((roundData, index) => {
+        // Проверка на наличие matches
+        const roundMatches = (roundData && Array.isArray(roundData.matches)) ? roundData.matches : [];
+        const roundName = (roundData && roundData.name) ? roundData.name : `Раунд ${index + 1}`;
+        
+        if (roundMatches.length === 0) return; // Пропускаем пустые раунды
         
         html += `
           <div class="bracket-round">
             <div class="bracket-round__title">${roundName}</div>
+            <div class="bracket-round__matches">
         `;
         
         roundMatches.forEach(match => {
-          const team1 = match.opponents?.[0]?.opponent;
-          const team2 = match.opponents?.[1]?.opponent;
-          const score1 = match.results?.[0]?.score ?? '-';
-          const score2 = match.results?.[1]?.score ?? '-';
+          // Безопасное получение данных
+          const opponents = match.opponents || [];
+          const results = match.results || [];
+          
+          const team1 = opponents[0]?.opponent || null;
+          const team2 = opponents[1]?.opponent || null;
+          
+          const score1 = results[0]?.score ?? '-';
+          const score2 = results[1]?.score ?? '-';
+          
           const isFinished = match.status === 'finished' || match.status === 'completed';
           const isLive = match.status === 'running' || match.status === 'live';
           
@@ -207,53 +213,210 @@ export class Bracket extends BaseComponent {
           const team2Winner = winnerId && team2 && winnerId === team2.id;
 
           html += `
-            <div class="bracket-match ${isLive ? 'bracket-match--live' : ''}">
-              ${isLive ? '<div class="bracket-match__status bracket-match__status--live">🔴 LIVE</div>' : ''}
-              
-              <div class="bracket-team ${team1Winner ? 'bracket-team--winner' : team1Winner === false ? 'bracket-team--loser' : ''}">
-                <span class="bracket-team__name">
-                  ${team1?.image_url ? `<img src="${team1.image_url}" alt="" class="bracket-team__logo">` : ''}
-                  ${team1?.name || team1?.acronym || 'TBD'}
-                </span>
-                <span class="bracket-team__score">${score1}</span>
+            <div class="match-wrapper ${isFinished ? 'match-card--finished' : ''}">
+              <div class="match-card ${isLive ? 'match-card--live' : ''}">
+                ${isLive ? '<div class="match-status match-status--live">🔴 LIVE</div>' : ''}
+                
+                <div class="match-team ${team1Winner ? 'winner' : ''} ${team1Winner === false ? 'loser' : ''}">
+                  <span class="team-name">${team1?.name || team1?.acronym || 'TBD'}</span>
+                  <span class="team-score">${score1}</span>
+                </div>
+                
+                <div class="match-divider"></div>
+                
+                <div class="match-team ${team2Winner ? 'winner' : ''} ${team2Winner === false ? 'loser' : ''}">
+                  <span class="team-name">${team2?.name || team2?.acronym || 'TBD'}</span>
+                  <span class="team-score">${score2}</span>
+                </div>
+                
+                ${match.begin_at ? `<div class="match-time">${new Date(match.begin_at).toLocaleDateString('ru-RU')}</div>` : ''}
               </div>
-              
-              <div class="bracket-team ${team2Winner ? 'bracket-team--winner' : team2Winner === false ? 'bracket-team--loser' : ''}">
-                <span class="bracket-team__name">
-                  ${team2?.image_url ? `<img src="${team2.image_url}" alt="" class="bracket-team__logo">` : ''}
-                  ${team2?.name || team2?.acronym || 'TBD'}
-                </span>
-                <span class="bracket-team__score">${score2}</span>
-              </div>
-              
-              ${match.begin_at ? `<div class="bracket-match__time">🕐 ${new Date(match.begin_at).toLocaleString('ru-RU')}</div>` : ''}
+              ${index < rounds.length - 1 ? '<div class="connector-line"></div>' : ''}
             </div>
           `;
         });
 
-        html += `</div>`;
+        html += `</div></div>`;
       });
+      
+      html += `</div>`;
     }
-    
-    html += `</div>`;
 
     this.element.innerHTML = html;
 
-    // Кнопка "Назад"
-    this.element.querySelector('[data-action="back"]')?.addEventListener('click', () => {
-      this.showTournamentsList();
-    });
+    const backBtn = this.element.querySelector('[data-action="back"]');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        this.showTournamentsList();
+      });
+    }
 
     return this.element;
   }
 
+  // Улучшенная группировка: сохраняем название стадии из API
   groupMatchesByRound(matches) {
-    const rounds = {};
-    matches.forEach(match => {
-      const key = match.serie_id || match.name || 'default';
-      if (!rounds[key]) rounds[key] = [];
-      rounds[key].push(match);
+    console.log('📊 Группировка матчей. Всего матчей:', matches.length);
+    
+    if (!matches || !Array.isArray(matches) || matches.length === 0) {
+      console.warn('⚠️ Матчей нет или они невалидны');
+      return [];
+    }
+    
+    const roundsMap = new Map();
+    
+    matches.forEach((match, index) => {
+      console.log(`Матч ${index}:`, {
+        id: match.id,
+        name: match.name,
+        serie_id: match.serie_id,
+        serie: match.serie,
+        status: match.status
+      });
+      
+      // Безопасное получение serie
+      const serie = match.serie || {};
+      const key = match.serie_id || serie.slug || `round_${index}`;
+      const name = serie.name || serie.full_name || `Раунд ${roundsMap.size + 1}`;
+      
+      if (!roundsMap.has(key)) {
+        roundsMap.set(key, { name, matches: [], order: serie.order || index });
+      }
+      
+      const roundData = roundsMap.get(key);
+      if (roundData && Array.isArray(roundData.matches)) {
+        roundData.matches.push(match);
+      }
     });
-    return Object.values(rounds);
+
+    // Сортируем раунды по порядку
+    const roundsArray = Array.from(roundsMap.values());
+    roundsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    console.log('✅ Сгруппировано раундов:', roundsArray.length);
+    roundsArray.forEach((round, idx) => {
+      console.log(`Раунд ${idx + 1}: ${round.name} - ${round.matches.length} матчей`);
+    });
+    
+    return roundsArray;
+  }
+
+// Метод renderBracketView - с дополнительной проверкой
+renderBracketView() {
+  console.log('🎨 Рендер сетки турнира:', this.currentTournament);
+  console.log('📋 Матчей для отображения:', this.matches.length);
+  
+  // Сортируем матчи по дате
+  const sortedMatches = [...this.matches].sort((a, b) => 
+    new Date(a.begin_at || 0) - new Date(b.begin_at || 0)
+  );
+  
+  // Группируем по стадиям (сериям)
+  const rounds = this.groupMatchesByRound(sortedMatches);
+
+  let html = `
+    <div class="bracket-header">
+      <button class="back-btn" data-action="back">← Назад к турнирам</button>
+      <h1 class="bracket-title">${this.currentTournament.name}</h1>
+      
+      <div class="bracket-info">
+        <span>🎮 ${this.currentTournament.game}</span>
+        ${this.currentTournament.prizepool ? `<span>🏆 ${this.currentTournament.prizepool}</span>` : ''}
+        ${this.currentTournament.league ? `<span>🏅 ${this.currentTournament.league}</span>` : ''}
+      </div>
+    </div>
+  `;
+
+  if (!rounds || rounds.length === 0) {
+    console.warn('⚠️ Раунды пустые!');
+    html += `<div class="empty-state">Сетка матчей ещё не сформирована</div>`;
+  } else {
+    html += `<div class="bracket-tree">`;
+    
+    rounds.forEach((roundData, index) => {
+      // Проверка на наличие matches
+      const roundMatches = (roundData && Array.isArray(roundData.matches)) ? roundData.matches : [];
+      const roundName = (roundData && roundData.name) ? roundData.name : `Раунд ${index + 1}`;
+      
+      console.log(`Рендер раунда ${index}: ${roundName}, матчей: ${roundMatches.length}`);
+      
+      if (roundMatches.length === 0) {
+        console.warn(`Раунд ${index} пустой!`);
+        return; // Пропускаем пустые раунды
+      }
+      
+      html += `
+        <div class="bracket-round">
+          <div class="bracket-round__title">${roundName}</div>
+          <div class="bracket-round__matches">
+      `;
+      
+      roundMatches.forEach((match, matchIndex) => {
+        console.log(`Рендер матча ${matchIndex}:`, match);
+        
+        // Безопасное получение данных
+        const opponents = match.opponents || [];
+        const results = match.results || [];
+        
+        const team1 = opponents[0]?.opponent || null;
+        const team2 = opponents[1]?.opponent || null;
+        
+        const score1 = results[0]?.score ?? '-';
+        const score2 = results[1]?.score ?? '-';
+        
+        const isFinished = match.status === 'finished' || match.status === 'completed';
+        const isLive = match.status === 'running' || match.status === 'live';
+        
+        const winnerId = match.winner_id;
+        const team1Winner = winnerId && team1 && winnerId === team1.id;
+        const team2Winner = winnerId && team2 && winnerId === team2.id;
+
+        html += `
+          <div class="match-wrapper ${isFinished ? 'match-card--finished' : ''}">
+            <div class="match-card ${isLive ? 'match-card--live' : ''}">
+              ${isLive ? '<div class="match-status match-status--live">🔴 LIVE</div>' : ''}
+              
+              <div class="match-team ${team1Winner ? 'winner' : ''} ${team1Winner === false ? 'loser' : ''}">
+                <span class="team-name">${team1?.name || team1?.acronym || 'TBD'}</span>
+                <span class="team-score">${score1}</span>
+              </div>
+              
+              <div class="match-divider"></div>
+              
+              <div class="match-team ${team2Winner ? 'winner' : ''} ${team2Winner === false ? 'loser' : ''}">
+                <span class="team-name">${team2?.name || team2?.acronym || 'TBD'}</span>
+                <span class="team-score">${score2}</span>
+              </div>
+              
+              ${match.begin_at ? `<div class="match-time">${new Date(match.begin_at).toLocaleDateString('ru-RU')}</div>` : ''}
+            </div>
+            ${index < rounds.length - 1 ? '<div class="connector-line"></div>' : ''}
+          </div>
+        `;
+      });
+
+      html += `</div></div>`;
+    });
+    
+    html += `</div>`;
+  }
+
+  this.element.innerHTML = html;
+  console.log('HTML вставлен в DOM');
+
+  const backBtn = this.element.querySelector('[data-action="back"]');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      this.showTournamentsList();
+    });
+  }
+
+  return this.element;
+}
+
+  getRoundName(index, totalRounds) {
+    if (index === totalRounds - 1) return 'Финал';
+    if (index === totalRounds - 2) return 'Полуфинал';
+    return `Раунд ${index + 1}`;
   }
 }

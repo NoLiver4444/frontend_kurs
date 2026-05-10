@@ -133,7 +133,9 @@ export async function fetchTournamentMatches(tournamentId) {
       throw new Error(`HTTP Error: ${response.status}`);
     }
 
-    const matches = await response.json();
+    const data = await response.json();
+    const matches = Array.isArray(data) ? data : [];
+    
     console.log(`✅ Получено матчей: ${matches.length}`);
     
     return matches.map(match => ({
@@ -144,7 +146,8 @@ export async function fetchTournamentMatches(tournamentId) {
       opponents: match.opponents || [],
       results: match.results || [],
       winner_id: match.winner_id,
-      serie_id: match.serie_id
+      serie_id: match.serie_id,
+      serie: match.serie || null
     }));
 
   } catch (error) {
