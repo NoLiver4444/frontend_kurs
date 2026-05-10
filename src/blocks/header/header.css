@@ -145,3 +145,35 @@
   .header__link { font-size: 1.1rem; padding: 0.75rem 0; }
   .header__auth-btn { width: 100%; text-align: center; margin-top: 1rem; }
 }
+
+/* Стили для навигации */
+.header__list a {
+  color: #a0a3b1;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative; /* Важно для подчеркивания */
+  padding-bottom: 4px;
+}
+
+.header__list a:hover { 
+  color: #fff; 
+}
+
+/* АКТИВНАЯ ССЫЛКА (подчеркивание) */
+.header__list a.active {
+  color: #fff;
+  font-weight: 700;
+}
+
+.header__list a.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #7b61ff, #00d2ff);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(123, 97, 255, 0.5);
+}

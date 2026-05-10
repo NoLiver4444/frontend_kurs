@@ -1,0 +1,353 @@
+/* ... (предыдущие стили rating) ... */
+
+.rating__filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+}
+
+/* Базовый стиль кнопки (неактивной) */
+.filter-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0a3b1;
+  padding: 0.7rem 1.8rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* АКТИВНАЯ КНОПКА (Свечение) */
+.filter-btn.active {
+  background: linear-gradient(135deg, #7b61ff 0%, #00d2ff 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(123, 97, 255, 0.6), 0 0 10px rgba(0, 210, 255, 0.4);
+  font-weight: 700;
+  transform: scale(1.05);
+}
+
+/* Анимация при переключении */
+.filter-btn.active::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+/* Логотипы команд в таблице */
+.team-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 0.5rem;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+}
+
+.rating {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 2rem;
+}
+
+.rating__title {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, #fff 0%, #7b61ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 40px rgba(123, 97, 255, 0.3);
+}
+
+.rating__filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: #a0a3b1;
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.filter-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.filter-btn:hover::before {
+  left: 100%;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: translateY(-2px);
+  border-color: rgba(123, 97, 255, 0.5);
+  box-shadow: 0 5px 20px rgba(123, 97, 255, 0.3);
+}
+
+.filter-btn.active {
+  background: linear-gradient(135deg, #7b61ff 0%, #00d2ff 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 30px rgba(123, 97, 255, 0.6), 0 0 10px rgba(0, 210, 255, 0.4);
+  font-weight: 700;
+  transform: scale(1.05);
+}
+
+.rating__table-wrapper {
+  background: rgba(20, 22, 28, 0.7);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  border: 1px solid rgba(123, 97, 255, 0.2);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(123, 97, 255, 0.1);
+}
+
+.rating__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rating__th {
+  padding: 1.5rem 1.5rem;
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #7b61ff;
+  font-weight: 700;
+  border-bottom: 2px solid rgba(123, 97, 255, 0.3);
+  background: rgba(123, 97, 255, 0.05);
+}
+
+.rating__th:last-child {
+  text-align: right;
+}
+
+.rating__cell {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.rating__row:last-child .rating__cell {
+  border-bottom: none;
+}
+
+.rating__row:hover .rating__cell {
+  background: rgba(123, 97, 255, 0.08);
+  transform: translateX(5px);
+}
+
+.rating__cell--rank {
+  width: 80px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #7b61ff;
+}
+
+.rating__cell--team {
+  font-weight: 600;
+}
+
+.rating__cell--points {
+  font-weight: 700;
+  color: #fbbf24;
+  font-size: 1.1rem;
+  text-align: right;
+}
+
+.rating__cell--winrate {
+  text-align: right;
+  width: 200px;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 800;
+  font-size: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.rank-badge--top {
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  color: #000;
+  border-color: #fbbf24;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+  animation: rankPulse 2s infinite;
+}
+
+@keyframes rankPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.5); }
+  50% { box-shadow: 0 0 30px rgba(251, 191, 36, 0.8); }
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.team-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(123, 97, 255, 0.3);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.rating__row:hover .team-logo {
+  border-color: #7b61ff;
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(123, 97, 255, 0.4);
+}
+
+.team-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.progress-bar {
+  width: 120px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.75rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.progress-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  transition: width 1s ease;
+}
+
+.winrate-text {
+  font-size: 0.9rem;
+  color: #10b981;
+  font-weight: 700;
+}
+
+.loader, .empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #a0a3b1;
+  font-size: 1.2rem;
+}
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  background: linear-gradient(135deg, #7b61ff, #5a3fd1);
+  color: #fff;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(123, 97, 255, 0.4);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .rating {
+    padding: 0 1rem;
+  }
+
+  .rating__title {
+    font-size: 1.8rem;
+  }
+
+  .rating__table {
+    font-size: 0.85rem;
+  }
+
+  .rating__th,
+  .rating__cell {
+    padding: 1rem;
+  }
+
+  .team-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .progress-bar {
+    width: 80px;
+  }
+}

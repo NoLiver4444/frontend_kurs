@@ -230,3 +230,248 @@ export async function fetchGames() {
     return [];
   }
 }
+
+export async function fetchTeamsByGame(gameSlug) {
+  try {
+    console.log(`🏆 Загрузка рейтинга для: ${gameSlug}`);
+    
+    const targetSlug = gameSlug === 'cs2' ? 'cs-2' : gameSlug;
+    console.log(`🎮 Ищем игры: ${targetSlug}`);
+
+    // Запрашиваем больше турниров
+    const tournamentsUrl = `${API_BASE}/tournaments?per_page=100&sort=-begin_at`;
+    
+    const tournamentsResponse = await fetch(tournamentsUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tournamentsResponse.ok) {
+      console.warn('⚠️ Не удалось получить турниры');
+      return getMockTeamsByGame(gameSlug);
+    }
+
+    const allTournaments = await tournamentsResponse.json();
+    console.log(`📦 Всего турниров: ${allTournaments.length}`);
+    
+    // Фильтруем по игре, году И ТИРУ (A и S)
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    
+    let filteredTournaments = allTournaments.filter(tournament => {
+      const vgSlug = (tournament.videogame?.slug || '').toLowerCase();
+      const vgtSlug = (tournament.videogame_title?.slug || '').toLowerCase();
+      const vgName = (tournament.videogame?.name || '').toLowerCase();
+      const vgtName = (tournament.videogame_title?.name || '').toLowerCase();
+      
+      // Проверка игры
+      let isCorrectGame = false;
+      if (targetSlug === 'lol') {
+        isCorrectGame = vgSlug === 'lol' || vgtSlug === 'lol' || 
+                      vgName.includes('league') || vgtName.includes('league');
+      } else if (targetSlug === 'cs-2') {
+        isCorrectGame = vgSlug === 'cs-2' || vgtSlug === 'cs-2' ||
+                      vgSlug === 'cs-go' || vgtSlug === 'cs-go';
+      } else if (targetSlug === 'starcraft-2') { // ← ДОБАВЛЕНО
+        isCorrectGame = vgSlug === 'starcraft-2' || vgtSlug === 'starcraft-2' ||
+                      vgName.includes('starcraft') || vgtName.includes('sc2');
+      } else {
+        isCorrectGame = vgSlug === targetSlug || vgtSlug === targetSlug;
+      }
+      
+      // Проверка года
+      const beginYear = tournament.begin_at ? new Date(tournament.begin_at).getFullYear() : 0;
+      const isCorrectYear = beginYear >= lastYear && beginYear <= currentYear + 1;
+      
+      // 🔥 ПРОВЕРКА ПО ТИРУ (только A и S)
+      const tier = (tournament.tier || '').toLowerCase();
+      const isCorrectTier = tier === 'a' || tier === 's';
+      
+      return isCorrectGame && isCorrectYear && isCorrectTier;
+    });
+    
+    console.log(`✅ Отфильтровано (A-S тир, ${lastYear}-${currentYear}): ${filteredTournaments.length}`);
+    
+    if (filteredTournaments.length === 0) {
+      return getMockTeamsByGame(gameSlug);
+    }
+
+    // Берем больше турниров для обработки
+    const tournamentsToProcess = filteredTournaments.slice(0, 15);
+    
+    const teamsMap = new Map();
+    let processedMatches = 0;
+    let processedTournaments = 0;
+
+    for (const tournament of tournamentsToProcess) {
+      try {
+        console.log(`📥 [${processedTournaments + 1}/15] ${tournament.name} (Tier: ${tournament.tier}, ID: ${tournament.id})`);
+        
+        const matchesUrl = `${API_BASE}/tournaments/${tournament.id}/matches?per_page=50&include=opponents,teams`;
+        
+        const matchesResponse = await fetch(matchesUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!matchesResponse.ok) continue;
+        
+        const data = await matchesResponse.json();
+        const matches = Array.isArray(data) ? data : (data.data || []);
+        
+        if (matches.length === 0) continue;
+        
+        processedMatches += matches.length;
+        processedTournaments++;
+
+        matches.forEach((match) => {
+          const opponents = match.opponents || [];
+          const results = match.results || [];
+          const winnerId = match.winner_id;
+
+          opponents.forEach((oppObj, oppIdx) => {
+            const team = oppObj?.opponent || oppObj;
+            
+            if (!team || !team.id) return;
+
+            const result = results[oppIdx] || {};
+            const isWinner = winnerId === team.id;
+            const score = result.score || 0;
+
+            if (!teamsMap.has(team.id)) {
+              teamsMap.set(team.id, {
+                id: team.id,
+                name: team.name || team.acronym || 'Unknown',
+                acronym: team.acronym || '',
+                logo: team.image_url,
+                country: team.location || 'INT',
+                matches: 0,
+                wins: 0,
+                totalScore: 0,
+                points: 0,
+                tournaments: new Set(),
+                tierBonus: tournament.tier === 's' ? 1.5 : 1.0 // Бонус за S-тир
+              });
+            }
+
+            const teamData = teamsMap.get(team.id);
+            teamData.matches++;
+            teamData.tournaments.add(tournament.id);
+            teamData.totalScore += score;
+            
+            // Увеличенные очки за победы в A-S тир турнирах
+            if (isWinner) {
+              teamData.wins++;
+              teamData.points += 300 * teamData.tierBonus; // S-тир = 450 очков
+            } else {
+              teamData.points += 75 * teamData.tierBonus;  // S-тир = 112.5 очков
+            }
+            teamData.points += score * 20 * teamData.tierBonus;
+          });
+        });
+      } catch (err) {
+        console.error(`❌ Ошибка турнира ${tournament.id}:`, err);
+      }
+    }
+
+    console.log(`📊 Обработано турниров: ${processedTournaments}`);
+    console.log(`📊 Матчей: ${processedMatches}`);
+    console.log(`📊 Команд: ${teamsMap.size}`);
+
+    if (teamsMap.size === 0) {
+      return getMockTeamsByGame(gameSlug);
+    }
+
+    // Сортируем
+    const teamsArray = Array.from(teamsMap.values()).map(team => ({
+      ...team,
+      tournamentsCount: team.tournaments.size
+    }));
+    
+    teamsArray.sort((a, b) => {
+      const aWR = a.matches > 0 ? a.wins / a.matches : 0;
+      const bWR = b.matches > 0 ? b.wins / b.matches : 0;
+      
+      // Приоритет: очки > винрейт > турниры > матчи
+      if (b.points !== a.points) return b.points - a.points;
+      if (bWR !== aWR) return bWR - aWR;
+      if (b.tournamentsCount !== a.tournamentsCount) {
+        return b.tournamentsCount - a.tournamentsCount;
+      }
+      return b.matches - a.matches;
+    });
+
+    const result = teamsArray.slice(0, 20).map((team, index) => ({
+      rank: index + 1,
+      name: team.name,
+      acronym: team.acronym,
+      logo: team.logo,
+      country: team.country,
+      points: Math.round(team.points),
+      winrate: team.matches > 0 ? Math.round((team.wins / team.matches) * 100) : 0,
+      matches: team.matches,
+      wins: team.wins,
+      tournaments: team.tournamentsCount
+    }));
+
+    console.log('✅ ВОЗВРАЩАЕМ:', result.length, 'команд');
+    return result;
+
+  } catch (error) {
+    console.error('🔴 Ошибка:', error);
+    return getMockTeamsByGame(gameSlug);
+  }
+}
+
+/**
+ * Fallback данные (если API не вернул результаты)
+ */
+function getMockTeamsByGame(gameSlug) {
+  const mockData = {
+    'cs2': [
+      { rank: 1, name: 'Natus Vincere', acronym: 'NAVI', country: '🇺🇦', points: 1000, winrate: 88, logo: null },
+      { rank: 2, name: 'Vitality', acronym: 'VIT', country: '🇫🇷', points: 950, winrate: 85, logo: null },
+      { rank: 3, name: 'FaZe Clan', acronym: 'FaZe', country: '🇪🇺', points: 920, winrate: 82, logo: null },
+      { rank: 4, name: 'G2 Esports', acronym: 'G2', country: '🇪🇺', points: 890, winrate: 79, logo: null },
+      { rank: 5, name: 'MOUZ', acronym: 'MOUZ', country: '🇩🇪', points: 860, winrate: 76, logo: null },
+    ],
+    'dota-2': [
+      { rank: 1, name: 'Team Spirit', acronym: 'TS', country: '🇷🇺', points: 1200, winrate: 85, logo: null },
+      { rank: 2, name: 'Gaimin Gladiators', acronym: 'GG', country: '🇪🇺', points: 1150, winrate: 82, logo: null },
+      { rank: 3, name: 'Tundra Esports', acronym: 'TUN', country: '🇪🇺', points: 1100, winrate: 79, logo: null },
+      { rank: 4, name: 'Team Liquid', acronym: 'TL', country: '🇪🇺', points: 1050, winrate: 76, logo: null },
+      { rank: 5, name: 'BetBoom Team', acronym: 'BBT', country: '🇷🇺', points: 1000, winrate: 73, logo: null },
+    ],
+    'lol': [
+      { rank: 1, name: 'T1', acronym: 'T1', country: '🇰🇷', points: 2100, winrate: 88, logo: null },
+      { rank: 2, name: 'Gen.G', acronym: 'GEN', country: '🇰🇷', points: 2050, winrate: 85, logo: null },
+      { rank: 3, name: 'JD Gaming', acronym: 'JDG', country: '🇨🇳', points: 1900, winrate: 82, logo: null },
+      { rank: 4, name: 'Bilibili Gaming', acronym: 'BLG', country: '🇨🇳', points: 1850, winrate: 79, logo: null },
+      { rank: 5, name: 'G2 Esports', acronym: 'G2', country: '🇪🇺', points: 1600, winrate: 76, logo: null },
+    ],
+    'valorant': [
+      { rank: 1, name: 'Sentinels', acronym: 'SEN', country: '🇺🇸', points: 1400, winrate: 85, logo: null },
+      { rank: 2, name: 'Paper Rex', acronym: 'PRX', country: '🇸🇬', points: 1350, winrate: 82, logo: null },
+      { rank: 3, name: 'DRX', acronym: 'DRX', country: '🇰🇷', points: 1300, winrate: 79, logo: null },
+      { rank: 4, name: 'Fnatic', acronym: 'FNC', country: '🇪🇺', points: 1250, winrate: 76, logo: null },
+      { rank: 5, name: 'LOUD', acronym: 'LOUD', country: '🇧🇷', points: 1100, winrate: 73, logo: null },
+    ],
+    'starcraft-2': [
+      { rank: 1, name: 'Maru', acronym: 'MARU', country: '🇰🇷', points: 1500, winrate: 92, logo: null },
+      { rank: 2, name: 'Dark', acronym: 'DRK', country: '🇰🇷', points: 1450, winrate: 89, logo: null },
+      { rank: 3, name: 'Cure', acronym: 'CURE', country: '🇰', points: 1400, winrate: 87, logo: null },
+      { rank: 4, name: 'Reynor', acronym: 'REY', country: '🇮🇹', points: 1350, winrate: 85, logo: null },
+      { rank: 5, name: 'Serral', acronym: 'SER', country: '🇫🇮', points: 1300, winrate: 84, logo: null },
+      { rank: 6, name: 'Rogue', acronym: 'ROG', country: '🇰', points: 1250, winrate: 82, logo: null },
+      { rank: 7, name: 'Stats', acronym: 'STA', country: '🇰🇷', points: 1200, winrate: 80, logo: null },
+      { rank: 8, name: 'ByuN', acronym: 'BYU', country: '🇰🇷', points: 1150, winrate: 78, logo: null },
+    ]
+  };
+  return mockData[gameSlug] || mockData['cs2'];
+}
