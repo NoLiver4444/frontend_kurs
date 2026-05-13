@@ -1,6 +1,3 @@
-import { fetchWithProxy } from './proxy.js';
-
-
 const PANDASCORE_TOKEN = 'VVmjz97l-DKiaJ4OJuRmsEE-kN2OV9HW2oA2qpsqQ9VCQIgb-cg';
 const API_BASE = 'https://api.pandascore.co';
 
@@ -14,10 +11,10 @@ export async function fetchTournaments(gameSlug = null, limit = 20) {
       'sort': '-begin_at'
     });
 
-    const url = `${API_BASE}/tournaments?${params.toString()}`;
+    const url = `/api/tournaments?per_page=50`;
     console.log('📡 Запрос к API:', url);
 
-    const response = await fetchWithProxy(url, {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
@@ -124,7 +121,7 @@ export async function fetchTournamentMatches(tournamentId) {
 
     const url = `${API_BASE}/tournaments/${tournamentId}/matches?per_page=50`;
     
-    const response = await fetchWithProxy(url, {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${PANDASCORE_TOKEN}`,

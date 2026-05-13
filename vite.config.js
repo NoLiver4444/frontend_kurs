@@ -1,7 +1,16 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: 'frontend_kurs', // ← название твоего репо на GitHub
+  base: 'frontend_kurs',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api.pandascore.co',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+  },
   build: {
     outDir: 'dist',
   },
