@@ -121,7 +121,7 @@ export async function fetchTournamentMatches(tournamentId) {
 
     const url = `${API_BASE}/tournaments/${tournamentId}/matches?per_page=50`;
     
-    const response = await fetch(url, {
+    const response = await fetchWithProxy(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${PANDASCORE_TOKEN}`,

@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: './',
-  css: {
-    devSourcemap: true
-  }
-});
+  base: 'frontend_kurs', // ← название твоего репо на GitHub
+  build: {
+    outDir: 'dist',
+  },
+})
