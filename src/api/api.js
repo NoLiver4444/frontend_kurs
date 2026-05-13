@@ -1,3 +1,6 @@
+import { fetchWithProxy } from './proxy.js';
+
+
 const PANDASCORE_TOKEN = 'VVmjz97l-DKiaJ4OJuRmsEE-kN2OV9HW2oA2qpsqQ9VCQIgb-cg';
 const API_BASE = 'https://api.pandascore.co';
 
@@ -14,7 +17,7 @@ export async function fetchTournaments(gameSlug = null, limit = 20) {
     const url = `${API_BASE}/tournaments?${params.toString()}`;
     console.log('📡 Запрос к API:', url);
 
-    const response = await fetch(url, {
+    const response = await fetchWithProxy(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${PANDASCORE_TOKEN}`,
